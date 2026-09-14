@@ -37,27 +37,39 @@ app.post('/webhook/chariow', (req, res) => {
 });
 
 // Etape 2 : la personne envoie sa clé de licence au bot en privé
-bot.on('message', (msg) => {
+const CHARIOW_API_KEY = process.env.CHARIOW_API_KEY;
+
+bot.on('message', async (msg) => {
   const texte = msg.text ? msg.text.trim() : '';
   if (texte.startsWith('/start') || texte.startsWith('/activer')) {
     bot.sendMessage(msg.chat.id, "Envoie-moi simplement ta clé de licence reçue après paiement (ex: AVQ6-BDRW-RLR6-5OEA), et je t'ajoute au groupe.");
     return;
   }
 
-  // Pour l'instant, on accepte n'importe quel message ressemblant à une clé
   if (/^[A-Z0-9-]{10,}$/i.test(texte)) {
-    // On ajoute la personne pour 30 jours (on affinera la vérification plus tard)
-    const data = lireDonnees();
-    const expiration = Date.now() + 30 * 24 * 60 * 60 * 1000;
-    data.abonnes[msg.from.id] = { expiration, licence: texte };
-    sauverDonnees(data);
+    try {
+      const reponse = await axios.get(`https://api.chariow.com/v1/licenses/${texte}`, {
+        headers: { Authorization: `Bearer ${CHARIOW_API_KEY}` }
+      });
 
-    bot.createChatInviteLink(GROUP_ID, { member_limit: 1 }).then((lien) => {
+      const licence = reponse.data.data;
+
+      if (!licence.is_active || licence.is_expired) {
+        bot.sendMessage(msg.chat.id, "Cette clé n'est pas valide ou a déjà expiré. Vérifie que tu l'as bien copiée depuis Chariow.");
+        return;
+      }
+
+      const data = lireDonnees();
+      const expiration = Date.now() + 30 * 24 * 60 * 60 * 1000;
+      data.abonnes[msg.from.id] = { expiration, licence: texte };
+      sauverDonnees(data);
+
+      const lien = await bot.createChatInviteLink(GROUP_ID, { member_limit: 1 });
       bot.sendMessage(msg.chat.id, `Merci ! Voici ton lien pour rejoindre le groupe (valable pour 1 seule personne) : ${lien.invite_link}`);
-    }).catch((err) => {
-      bot.sendMessage(msg.chat.id, "Une erreur est survenue, réessaie plus tard.");
-      console.error(err);
-    });
+    } catch (err) {
+      console.error(err.response ? err.response.data : err.message);
+      bot.sendMessage(msg.chat.id, "Cette clé n'a pas été reconnue par Chariow. Vérifie qu'elle est correcte.");
+    }
   }
 });
 
