@@ -48,16 +48,13 @@ bot.on('message', async (msg) => {
 
   if (/^[A-Z0-9-]{10,}$/i.test(texte)) {
     try {
-      const reponse = await axios.get(`https://api.chariow.com/v1/licenses/${texte}`, {
+      const reponse = await axios.post('https://api.chariow.com/v1/licenses/activate', {
+        license_key: texte,
+        identifier: String(msg.from.id),
+        label: `Telegram - ${msg.from.username || msg.from.id}`
+      }, {
         headers: { Authorization: `Bearer ${CHARIOW_API_KEY}` }
       });
-
-      const licence = reponse.data.data;
-console.log('Réponse Chariow :', JSON.stringify(reponse.data));
-      if (!licence.is_active || licence.is_expired) {
-        bot.sendMessage(msg.chat.id, "Cette clé n'est pas valide ou a déjà expiré. Vérifie que tu l'as bien copiée depuis Chariow.");
-        return;
-      }
 
       const data = lireDonnees();
       const expiration = Date.now() + 30 * 24 * 60 * 60 * 1000;
@@ -68,7 +65,7 @@ console.log('Réponse Chariow :', JSON.stringify(reponse.data));
       bot.sendMessage(msg.chat.id, `Merci ! Voici ton lien pour rejoindre le groupe (valable pour 1 seule personne) : ${lien.invite_link}`);
     } catch (err) {
       console.error(err.response ? err.response.data : err.message);
-      bot.sendMessage(msg.chat.id, "Cette clé n'a pas été reconnue par Chariow. Vérifie qu'elle est correcte.");
+      bot.sendMessage(msg.chat.id, "Cette clé n'a pas pu être activée. Vérifie qu'elle est correcte, ou qu'elle a déjà été utilisée.");
     }
   }
 });
@@ -91,15 +88,5 @@ cron.schedule('0 6 * * *', () => {
 });
 
 const PORT = process.env.PORT || 3000;
-// Route de test temporaire : à supprimer plus tard
-app.get('/test-licence/:cle', async (req, res) => {
-  try {
-    const reponse = await axios.get(`https://api.chariow.com/v1/licenses/${req.params.cle}`, {
-      headers: { Authorization: `Bearer ${CHARIOW_API_KEY}` }
-    });
-    res.json(reponse.data);
-  } catch (err) {
-    res.json({ erreur: true, details: err.response ? err.response.data : err.message });
-  }
-});
+
 app.listen(PORT, () => console.log(`Serveur démarré sur le port ${PORT}`));
