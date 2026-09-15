@@ -80,18 +80,27 @@ bot.on('message', async (msg) => {
   }
 });
 
-// Etape 3 : chaque jour, on vérifie qui doit être retiré
+// Etape 3 : chaque jour, on vérifie qui doit être retiré, et on envoie des rappels
+const LIEN_PAIEMENT = 'https://africaservice.mychariow.shop/prd_abi7li74';
+
 cron.schedule('0 6 * * *', () => {
   const data = lireDonnees();
   const maintenant = Date.now();
+  const troisJours = 3 * 24 * 60 * 60 * 1000;
 
   for (const telegramId in data.abonnes) {
-    if (data.abonnes[telegramId].expiration < maintenant) {
+    const abonne = data.abonnes[telegramId];
+
+    if (abonne.expiration < maintenant) {
       bot.banChatMember(GROUP_ID, telegramId)
         .then(() => bot.unbanChatMember(GROUP_ID, telegramId))
         .then(() => console.log(`Retiré : ${telegramId}`))
         .catch((err) => console.error(err));
       delete data.abonnes[telegramId];
+    } else if (abonne.expiration - maintenant < troisJours && !abonne.rappelEnvoye) {
+      bot.sendMessage(telegramId, `Ton abonnement se termine dans moins de 3 jours ! Pour rester dans le groupe, repaie ici : ${LIEN_PAIEMENT}`)
+        .catch((err) => console.error(err));
+      abonne.rappelEnvoye = true;
     }
   }
   sauverDonnees(data);
