@@ -48,15 +48,25 @@ bot.on('message', async (msg) => {
 
   if (/^[A-Z0-9-]{10,}$/i.test(texte)) {
     try {
-      const reponse = await axios.post('https://api.chariow.com/v1/licenses/activate', {
-        license_key: texte,
-        identifier: String(msg.from.id),
-        label: `Telegram - ${msg.from.username || msg.from.id}`
-      }, {
+      const reponse = await axios.get(`https://api.chariow.com/v1/licenses/${texte}`, {
         headers: { Authorization: `Bearer ${CHARIOW_API_KEY}` }
       });
 
+      const licence = reponse.data.data;
+
+      if (licence.is_expired) {
+        bot.sendMessage(msg.chat.id, "Cette clé a expiré. Contacte le vendeur pour en obtenir une nouvelle.");
+        return;
+      }
+
       const data = lireDonnees();
+
+      if (data.licences[texte] && data.licences[texte].utilisee) {
+        bot.sendMessage(msg.chat.id, "Cette clé a déjà été utilisée par quelqu'un d'autre.");
+        return;
+      }
+
+      data.licences[texte] = { utilisee: true };
       const expiration = Date.now() + 30 * 24 * 60 * 60 * 1000;
       data.abonnes[msg.from.id] = { expiration, licence: texte };
       sauverDonnees(data);
@@ -65,7 +75,7 @@ bot.on('message', async (msg) => {
       bot.sendMessage(msg.chat.id, `Merci ! Voici ton lien pour rejoindre le groupe (valable pour 1 seule personne) : ${lien.invite_link}`);
     } catch (err) {
       console.error(err.response ? err.response.data : err.message);
-      bot.sendMessage(msg.chat.id, "Cette clé n'a pas pu être activée. Vérifie qu'elle est correcte, ou qu'elle a déjà été utilisée.");
+      bot.sendMessage(msg.chat.id, "Cette clé n'a pas été reconnue par Chariow. Vérifie qu'elle est correcte.");
     }
   }
 });
