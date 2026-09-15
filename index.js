@@ -91,4 +91,15 @@ cron.schedule('0 6 * * *', () => {
 });
 
 const PORT = process.env.PORT || 3000;
+// Route de test temporaire : à supprimer plus tard
+app.get('/test-licence/:cle', async (req, res) => {
+  try {
+    const reponse = await axios.get(`https://api.chariow.com/v1/licenses/${req.params.cle}`, {
+      headers: { Authorization: `Bearer ${CHARIOW_API_KEY}` }
+    });
+    res.json(reponse.data);
+  } catch (err) {
+    res.json({ erreur: true, details: err.response ? err.response.data : err.message });
+  }
+});
 app.listen(PORT, () => console.log(`Serveur démarré sur le port ${PORT}`));
