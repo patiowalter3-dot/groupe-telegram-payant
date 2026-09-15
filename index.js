@@ -7,7 +7,7 @@ const app = express();
 app.use(express.json());
 
 const BOT_TOKEN = process.env.BOT_TOKEN;
-const GROUP_ID = process.env.GROUP_ID;
+const ADMIN_ID = process.env.ADMIN_ID;
 const bot = new TelegramBot(BOT_TOKEN, { polling: true });
 
 const DATA_FILE = './data.json';
@@ -68,7 +68,7 @@ bot.on('message', async (msg) => {
 
       data.licences[texte] = { utilisee: true };
       const expiration = Date.now() + 30 * 24 * 60 * 60 * 1000;
-      data.abonnes[msg.from.id] = { expiration, licence: texte };
+      data.abonnes[msg.from.id] = { expiration, licence: texte, username: msg.from.username || msg.from.first_name || 'inconnu' };
       sauverDonnees(data);
 
       const lien = await bot.createChatInviteLink(GROUP_ID, { member_limit: 1 });
@@ -105,7 +105,29 @@ cron.schedule('0 6 * * *', () => {
   }
   sauverDonnees(data);
 });
+// Bilan quotidien envoyé au propriétaire
+cron.schedule('0 8 * * *', () => {
+  const data = lireDonnees();
+  const maintenant = Date.now();
+  const abonnes = Object.entries(data.abonnes);
 
+  if (abonnes.length === 0) {
+    bot.sendMessage(ADMIN_ID, "📊 Bilan quotidien : aucun abonné actif pour le moment.");
+    return;
+  }
+
+  let message = `📊 Bilan quotidien — ${abonnes.length} abonné(s) actif(s) :\n\n`;
+
+  abonnes.forEach(([telegramId, infos]) => {
+    const dateExpiration = new Date(infos.expiration).toLocaleDateString('fr-FR', {
+      day: '2-digit', month: '2-digit', year: 'numeric'
+    });
+    const joursRestants = Math.ceil((infos.expiration - maintenant) / (24 * 60 * 60 * 1000));
+    message += `• @${infos.username || 'inconnu'} (id: ${telegramId}) — sort le ${dateExpiration} (dans ${joursRestants} jour(s))\n`;
+  });
+
+  bot.sendMessage(ADMIN_ID, message).catch((err) => console.error(err));
+});
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => console.log(`Serveur démarré sur le port ${PORT}`));
