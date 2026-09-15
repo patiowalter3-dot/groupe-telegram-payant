@@ -53,7 +53,7 @@ bot.on('message', async (msg) => {
       });
 
       const licence = reponse.data.data;
-
+console.log('Réponse Chariow :', JSON.stringify(reponse.data));
       if (!licence.is_active || licence.is_expired) {
         bot.sendMessage(msg.chat.id, "Cette clé n'est pas valide ou a déjà expiré. Vérifie que tu l'as bien copiée depuis Chariow.");
         return;
